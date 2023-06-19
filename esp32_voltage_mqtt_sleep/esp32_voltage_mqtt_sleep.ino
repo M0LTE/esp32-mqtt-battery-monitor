@@ -40,8 +40,9 @@ PubSubClient client(espClient);
 int sample() {
   sum = 0;
   for (int i = 0; i < samples; i++)
-  {
+  for (int i = 0; i < samples; i++){
     sum += analogRead(sensorPin);
+    tryGiveUp();
   }
   return sum / samples;
 }
@@ -49,8 +50,20 @@ int sample() {
 void disconnectMqtt() {
   client.disconnect(); 
   espClient.flush();
-  while(client.state() != -1){  
+  while(client.state() != -1 && millis() < 60000){
     delay(10);
+  }
+}
+
+void goToSleep(){
+  disconnectMqtt();
+  esp_wifi_stop();
+  esp_deep_sleep_start();
+}
+
+void tryGiveUp(){
+  if (millis() > 60000){
+    goToSleep();
   }
 }
 
@@ -59,12 +72,14 @@ void setup() {
   Serial.begin(115200);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
+    tryGiveUp();
     delay(500);
   }
   client.setServer(mqtt_broker, mqtt_port);
+  String client_id = "esp32-client-";
+  client_id += String(WiFi.macAddress());  
   while (!client.connected()) {
-    String client_id = "esp32-client-";
-    client_id += String(WiFi.macAddress());
+    tryGiveUp();
     if (!client.connect(client_id.c_str(), mqtt_username, mqtt_password)) {
       Serial.print("MQTT connect failed with state ");
       Serial.print(client.state());
@@ -86,9 +101,7 @@ void setup() {
   Serial.flush();
   dtostrf(volts, 5, 2, outstr);
   client.publish(topic, outstr);
-  disconnectMqtt();
-  esp_wifi_stop();
-  esp_deep_sleep_start();
+  goToSleep();
 }
 
 void loop() {
