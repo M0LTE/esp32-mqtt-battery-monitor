@@ -39,7 +39,6 @@ PubSubClient client(espClient);
 
 int sample() {
   sum = 0;
-  for (int i = 0; i < samples; i++)
   for (int i = 0; i < samples; i++){
     sum += analogRead(sensorPin);
     tryGiveUp();
